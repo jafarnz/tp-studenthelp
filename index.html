@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TP Study Connect - Home</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="nav-brand">
+                <img src="tp-logo.png" alt="TP Logo" class="nav-logo">
+                <span>TP Study Connect</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link active">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    </svg>
+                    Home
+                </a>
+                <a href="studyhub.html" class="nav-link">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                    Study Hub
+                </a>
+            </div>
+            <div class="nav-profile">
+                <button class="notifications-btn">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <span class="notification-badge">3</span>
+                </button>
+                <div class="profile-menu">
+                    <img src="avatar.jpg" alt="Profile" class="profile-avatar">
+                    <div class="profile-info">
+                        <span class="profile-name">John Doe</span>
+                        <span class="profile-role">Student</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <h1>TP Study Connect</h1>
+        
+        <!-- Add search and filter section -->
+        <section class="search-section">
+            <div class="search-container">
+                <input type="text" placeholder="Search by subject or skill..." class="search-input">
+                <div class="filter-buttons">
+                    <button class="filter-btn active">All</button>
+                    <button class="filter-btn">IT</button>
+                    <button class="filter-btn">Business</button>
+                    <button class="filter-btn">Engineering</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="user-grid">
+            <div class="user-card">
+                <div class="status-indicator online"></div>
+                <img src="placeholder.png" alt="Tutor" class="user-avatar">
+                <h3>Sarah Chen</h3>
+                <div class="skill-level">
+                    <span class="skill-label">Expert in:</span>
+                    <div class="tags">
+                        <span class="tag">Cybersecurity</span>
+                        <span class="tag">Network Security</span>
+                    </div>
+                </div>
+                <div class="availability">
+                    <p>Available: Mon-Wed, 2PM-6PM</p>
+                </div>
+                <button class="connect-btn">Connect Now</button>
+            </div>
+            <div class="user-card">
+                <div class="status-indicator idle"></div>
+                <img src="placeholder.png" alt="Tutor" class="user-avatar">
+                <h3>Michael Tan</h3>
+                <div class="skill-level">
+                    <span class="skill-label">Expert in:</span>
+                    <div class="tags">
+                        <span class="tag">Data Analytics</span>
+                        <span class="tag">Machine Learning</span>
+                    </div>
+                </div>
+                <div class="availability">
+                    <p>Available: Tue-Thu, 3PM-7PM</p>
+                </div>
+                <button class="connect-btn">Connect Now</button>
+            </div>
+            <div class="user-card">
+                <div class="status-indicator dnd"></div>
+                <img src="placeholder.png" alt="Tutor" class="user-avatar">
+                <h3>Priya Kumar</h3>
+                <div class="skill-level">
+                    <span class="skill-label">Expert in:</span>
+                    <div class="tags">
+                        <span class="tag">Data Structures</span>
+                        <span class="tag">Algorithms</span>
+                    </div>
+                </div>
+                <div class="availability">
+                    <p>Available: Wed-Fri, 1PM-5PM</p>
+                </div>
+                <button class="connect-btn">Connect Now</button>
+            </div>
+            <div class="user-card">
+                <div class="status-indicator offline"></div>
+                <img src="placeholder.png" alt="Tutor" class="user-avatar">
+                <h3>Diana Ng</h3>
+                <div class="skill-level">
+                    <span class="skill-label">Expert in:</span>
+                    <div class="tags">
+                        <span class="tag">Web Development</span>
+                        <span class="tag">UI/UX Design</span>
+                    </div>
+                </div>
+                <div class="availability">
+                    <p>Available: Mon-Fri, 4PM-8PM</p>
+                </div>
+                <button class="connect-btn">Connect Now</button>
+            </div>
+        </section>
+
+        <!-- Add department section from studyhub -->
+        <section class="explore-subjects">
+            <h2>Explore Departments</h2>
+            <div class="subject-grid">
+                <!-- Copy the subject cards from studyhub.html lines 135-164 -->
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2023 TP Study Connect. All rights reserved.</p>
+    </footer>
+</body>
+</html>

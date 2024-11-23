@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TP Study Connect - Study Hub</title>
+    <link rel="stylesheet" href="studyhub.css">
+    <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="nav-brand">
+                <img src="tp-logo.png" alt="TP Logo" class="nav-logo">
+                <span>TP Study Connect</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    </svg>
+                    Home
+                </a>
+                <a href="studyhub.html" class="nav-link active">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                    Study Hub
+                </a>
+            </div>
+            <div class="nav-profile">
+                <button class="notifications-btn">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <span class="notification-badge">3</span>
+                </button>
+                <div class="profile-menu">
+                    <img src="avatar.jpg" alt="Profile" class="profile-avatar">
+                    <div class="profile-info">
+                        <span class="profile-name">John Doe</span>
+                        <span class="profile-role">Student</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <h1>Study Hub</h1>
+        
+        <!-- Add contribution button -->
+        <div class="contribute-section">
+            <button class="contribute-btn">
+                <svg class="plus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"></path>
+                </svg>
+                Share Your Study Materials
+            </button>
+        </div>
+
+        <section class="recommended-materials">
+            <h2>Recommended Materials</h2>
+            <div class="material-grid">
+                <div class="material-card card-base">
+                    <div class="material-type">PDF Notes</div>
+                    <h3>Cybersecurity Fundamentals</h3>
+                    <p>Comprehensive notes on basic cybersecurity concepts and practices.</p>
+                    <div class="material-meta">
+                        <div class="rating">
+                            <span class="stars">★★★★☆</span>
+                            <span class="rating-count">(42 ratings)</span>
+                        </div>
+                        <div class="downloads">
+                            <span class="download-count">128 downloads</span>
+                        </div>
+                    </div>
+                    <div class="material-tags">
+                        <span class="tag">Year 1</span>
+                        <span class="tag">IT Security</span>
+                    </div>
+                    <div class="button-container">
+                        <a href="#" class="btn-primary">View Notes</a>
+                    </div>
+                </div>
+                <div class="material-card card-base">
+                    <div class="material-type">Study Guide</div>
+                    <h3>Data Analytics Techniques</h3>
+                    <p>In-depth guide to various data analysis methods and tools.</p>
+                    <div class="material-meta">
+                        <div class="rating">
+                            <span class="stars">★★★★★</span>
+                            <span class="rating-count">(35 ratings)</span>
+                        </div>
+                        <div class="downloads">
+                            <span class="download-count">95 downloads</span>
+                        </div>
+                    </div>
+                    <div class="material-tags">
+                        <span class="tag">Year 2</span>
+                        <span class="tag">Data Science</span>
+                    </div>
+                    <div class="button-container">
+                        <a href="#" class="btn-primary">View Notes</a>
+                    </div>
+                </div>
+                <div class="material-card card-base">
+                    <div class="material-type">Study Guide</div>
+                    <h3>Data Structures and Algorithms</h3>
+                    <p>Detailed explanations and examples of common data structures and algorithms.</p>
+                    <div class="material-meta">
+                        <div class="rating">
+                            <span class="stars">★★★★☆</span>
+                            <span class="rating-count">(28 ratings)</span>
+                        </div>
+                        <div class="downloads">
+                            <span class="download-count">82 downloads</span>
+                        </div>
+                    </div>
+                    <div class="material-tags">
+                        <span class="tag">Year 2</span>
+                        <span class="tag">Computer Science</span>
+                    </div>
+                    <div class="button-container">
+                        <a href="#" class="btn-primary">View Notes</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="explore-subjects">
+            <h2>Explore Subjects</h2>
+            <div class="subject-grid">
+                <a href="#" class="subject-card">
+                    <div class="subject-icon">💻</div>
+                    <h3>Information Technology</h3>
+                    <span class="resource-count">124 resources</span>
+                </a>
+                <a href="#" class="subject-card">
+                    <div class="subject-icon">💼</div>
+                    <h3>Business</h3>
+                    <span class="resource-count">87 resources</span>
+                </a>
+                <a href="#" class="subject-card">
+                    <div class="subject-icon">🚧</div>
+                    <h3>Engineering</h3>
+                    <span class="resource-count">76 resources</span>
+                </a>
+                <a href="#" class="subject-card">
+                    <div class="subject-icon">🎨</div>
+                    <h3>Design</h3>
+                    <span class="resource-count">65 resources</span>
+                </a>
+                <a href="#" class="subject-card">
+                    <div class="subject-icon">🧬</div>
+                    <h3>Humanaties & Social Sciences</h3>
+                    <span class="resource-count">54 resources</span>
+                </a>
+                <a href="#" class="subject-card">
+                    <div class="subject-icon">🔬</div>
+                    <h3>Applied Science</h3>
+                    <span class="resource-count">43 resources</span>
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2023 TP Study Connect. All rights reserved.</p>
+    </footer>
+</body>
+</html>
