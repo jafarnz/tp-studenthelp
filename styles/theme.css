@@ -1,0 +1,43 @@
+:root {
+  /* Primary Colors */
+  --primary-color: #EE1B24;  /* TP Red */
+  --primary-dark: #CC1820;
+  --primary-light: #FF3B44;
+
+  /* Secondary Colors - Navy Blue */
+  --secondary-color: #1E3A8A;  /* Deep Navy */
+  --secondary-dark: #172B66;
+  --secondary-light: #2563EB;
+
+  /* Background Colors */
+  --bg-primary: #F8FAFC;  /* Light gray background */
+  --bg-secondary: #E2E8F0;
+  --bg-accent: #F1F5F9;
+
+  /* Text Colors */
+  --text-primary: #1E293B;
+  --text-secondary: #475569;
+  --text-light: #94A3B8;
+
+  /* Status Colors */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+
+  /* Component Colors */
+  --card-bg: #FFFFFF;
+  --card-border: #E2E8F0;
+  --input-bg: #FFFFFF;
+  --input-border: #CBD5E1;
+  --input-focus: #2563EB;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  --gradient-secondary: linear-gradient(135deg, var(--secondary-color) 0%, var(--secondary-dark) 100%);
+  --gradient-blue: linear-gradient(135deg, var(--secondary-light) 0%, var(--secondary-color) 100%);
+}
