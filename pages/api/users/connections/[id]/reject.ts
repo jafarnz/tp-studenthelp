@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]';
+import { authOptions } from '../../../auth/[...nextauth]';
 import prisma from '@/lib/prisma';
 
 export default async function handler(
@@ -56,7 +56,7 @@ export default async function handler(
     // Update connection status
     const updatedConnection = await prisma.connection.update({
       where: { id: connection.id },
-      data: { status: 'ACCEPTED' },
+      data: { status: 'REJECTED' },
       include: {
         fromUser: {
           select: {
@@ -81,8 +81,8 @@ export default async function handler(
     await prisma.notification.create({
       data: {
         userId: connection.fromUser.id,
-        type: 'CONNECTION_ACCEPTED',
-        message: `${currentUser.name || 'Someone'} accepted your connection request!`,
+        type: 'CONNECTION_REJECTED',
+        message: `${currentUser.name || 'Someone'} declined your connection request`,
         data: JSON.stringify({
           connectionId: connection.id,
           user: {
@@ -103,7 +103,7 @@ export default async function handler(
       }
     });
   } catch (error) {
-    console.error('Error accepting connection:', error);
-    res.status(500).json({ error: 'Failed to accept connection' });
+    console.error('Error rejecting connection:', error);
+    res.status(500).json({ error: 'Failed to reject connection' });
   }
 }

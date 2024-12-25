@@ -7,11 +7,12 @@ import { useRouter } from 'next/router';
 
 interface Notification {
   id: string;
-  type: 'CONNECTION_REQUEST' | 'CONNECTION_RESPONSE' | 'MESSAGE' | 'SYSTEM';
+  type: string;
   message: string;
+  data: any; // Data is already parsed by the API
   read: boolean;
   createdAt: string;
-  data?: any;
+  updatedAt: string;
 }
 
 const NotificationDropdown = () => {
@@ -58,70 +59,147 @@ const NotificationDropdown = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleNotificationResponse = async (notificationId: string, connectionId: string, accept: boolean) => {
+  const handleNotificationResponse = async (notification: Notification, accept: boolean) => {
     try {
-      // Update connection status
-      const response = await fetch('/api/users/connections', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          connectionId,
-          status: accept ? 'ACCEPTED' : 'DECLINED'
-        }),
-        credentials: 'same-origin'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update connection');
+      const notificationData = notification.data;
+      if (!notificationData || !notificationData.connectionId) {
+        throw new Error('Connection ID not found in notification data');
       }
 
-      // Mark notification as read
-      await fetch(`/api/notifications/${notificationId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ read: true }),
-        credentials: 'same-origin'
-      });
-
-      // Update local state
-      setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      const connectionId = notificationData.connectionId;
 
       if (accept) {
-        // Get the connection details to get the user ID
-        const connectionResponse = await fetch(`/api/connections/${connectionId}`, {
-          credentials: 'same-origin'
+        // Accept connection request
+        const response = await fetch(`/api/users/connections/${connectionId}/accept`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
-        
-        if (!connectionResponse.ok) {
-          throw new Error('Failed to fetch connection details');
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to accept connection');
         }
 
-        const connectionData = await connectionResponse.json();
-        const otherUserId = connectionData.userId === connectionData.fromUserId 
-          ? connectionData.toUserId 
-          : connectionData.fromUserId;
+        const data = await response.json();
+        
+        // Mark notification as read
+        await fetch(`/api/notifications/${notification.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ read: true }),
+          credentials: 'include'
+        });
 
-        // Close the dropdown
+        // Update local state
+        setNotifications(prev => prev.filter(n => n.id !== notification.id));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+
+        // Close dropdown
         setIsOpen(false);
 
-        // Redirect to study sessions with the user selected
-        router.push(`/dashboard/study-sessions?user=${otherUserId}`);
+        // Get the other user's ID from the notification data
+        const otherUser = notificationData.fromUser;
         
         toast.success('Connection accepted! Redirecting to chat...');
+        router.push(`/dashboard/livechat?userId=${otherUser.id}`);
       } else {
-        toast.success('Connection declined');
+        // Decline connection request
+        const response = await fetch(`/api/users/connections/${connectionId}/reject`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to decline connection');
+        }
+
+        // Mark notification as read
+        await fetch(`/api/notifications/${notification.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ read: true }),
+          credentials: 'include'
+        });
+
+        // Update local state
+        setNotifications(prev => prev.filter(n => n.id !== notification.id));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+
+        toast.success('Connection request declined');
       }
     } catch (error) {
       console.error('Error handling notification:', error);
-      toast.error('Failed to process request');
+      toast.error(error instanceof Error ? error.message : 'Failed to process request');
     }
+  };
+
+  const renderNotification = (notification: Notification) => {
+    const notificationData = notification.data;
+
+    return (
+      <div
+        key={notification.id}
+        className={`flex items-start space-x-3 p-3 rounded-lg transition-colors ${
+          !notification.read ? 'bg-purple-50' : 'hover:bg-gray-50'
+        }`}
+      >
+        <div className="flex-shrink-0">
+          {notification.type === 'CONNECTION_REQUEST' && (
+            <div className="relative">
+              {notificationData?.fromUser?.profilePicture ? (
+                <img
+                  src={notificationData.fromUser.profilePicture}
+                  alt=""
+                  className="h-10 w-10 rounded-full"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                  <UserIcon className="h-6 w-6 text-purple-600" />
+                </div>
+              )}
+              {!notification.read && (
+                <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-purple-400 ring-2 ring-white" />
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-gray-900">{notification.message}</p>
+          <p className="mt-1 text-xs text-gray-500">
+            {format(new Date(notification.createdAt), 'MMM d, h:mm a')}
+          </p>
+          
+          {notification.type === 'CONNECTION_REQUEST' && !notification.read && (
+            <div className="mt-3 flex space-x-2">
+              <button
+                onClick={() => handleNotificationResponse(notification, true)}
+                className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              >
+                Accept
+              </button>
+              <button
+                onClick={() => handleNotificationResponse(notification, false)}
+                className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              >
+                Decline
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const markAllAsRead = async () => {
@@ -182,59 +260,7 @@ const NotificationDropdown = () => {
                     <p className="mt-2 text-sm text-gray-500">No notifications yet</p>
                   </div>
                 ) : (
-                  notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`flex items-start space-x-3 p-3 rounded-lg transition-colors ${
-                        !notification.read ? 'bg-purple-50' : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex-shrink-0">
-                        {notification.type === 'CONNECTION_REQUEST' && (
-                          <div className="relative">
-                            {notification.data?.fromUser?.profilePicture ? (
-                              <img
-                                src={notification.data.fromUser.profilePicture}
-                                alt=""
-                                className="h-10 w-10 rounded-full"
-                              />
-                            ) : (
-                              <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
-                                <UserIcon className="h-6 w-6 text-purple-600" />
-                              </div>
-                            )}
-                            {!notification.read && (
-                              <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-purple-400 ring-2 ring-white" />
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900">{notification.message}</p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          {format(new Date(notification.createdAt), 'MMM d, h:mm a')}
-                        </p>
-                        
-                        {notification.type === 'CONNECTION_REQUEST' && !notification.read && (
-                          <div className="mt-3 flex space-x-2">
-                            <button
-                              onClick={() => handleNotificationResponse(notification.id, notification.data?.connectionId, true)}
-                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                            >
-                              Accept
-                            </button>
-                            <button
-                              onClick={() => handleNotificationResponse(notification.id, notification.data?.connectionId, false)}
-                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                            >
-                              Decline
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
+                  notifications.map(notification => renderNotification(notification))
                 )}
               </div>
             </div>

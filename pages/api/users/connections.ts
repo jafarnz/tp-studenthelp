@@ -14,38 +14,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'User email not found in session' });
   }
 
+  // Get current user id
+  const currentUser = await prisma.user.findUnique({
+    where: { email: userEmail },
+    select: { id: true }
+  });
+
+  if (!currentUser) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
   switch (req.method) {
     case 'GET':
       try {
         const connections = await prisma.connection.findMany({
           where: {
             OR: [
-              { requesterId: userEmail, status: 'ACCEPTED' },
-              { receiverId: userEmail, status: 'ACCEPTED' }
+              { fromUserId: currentUser.id, status: 'ACCEPTED' },
+              { toUserId: currentUser.id, status: 'ACCEPTED' }
             ]
           },
           include: {
-            requester: {
+            fromUser: {
               select: {
                 id: true,
                 name: true,
                 email: true,
-                image: true
+                profilePicture: true
               }
             },
-            receiver: {
+            toUser: {
               select: {
                 id: true,
                 name: true,
                 email: true,
-                image: true
+                profilePicture: true
               }
             }
           }
         });
 
         const formattedConnections = connections.map(conn => {
-          const otherUser = conn.requesterId === userEmail ? conn.receiver : conn.requester;
+          const otherUser = conn.fromUserId === currentUser.id ? conn.toUser : conn.fromUser;
           return {
             id: conn.id,
             user: otherUser,
@@ -62,14 +72,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     case 'POST':
       try {
-        const { receiverId } = req.body;
-        
+        const { targetUserId } = req.body;
+
+        if (!targetUserId) {
+          return res.status(400).json({ error: 'Target user ID is required' });
+        }
+
         // Check if connection already exists
         const existingConnection = await prisma.connection.findFirst({
           where: {
             OR: [
-              { requesterId: userEmail, receiverId },
-              { requesterId: receiverId, receiverId: userEmail }
+              {
+                fromUserId: currentUser.id,
+                toUserId: targetUserId
+              },
+              {
+                fromUserId: targetUserId,
+                toUserId: currentUser.id
+              }
             ]
           }
         });
@@ -78,77 +98,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(400).json({ error: 'Connection already exists' });
         }
 
-        // Create connection request
+        // Create new connection
         const connection = await prisma.connection.create({
           data: {
-            requesterId: userEmail,
-            receiverId,
+            fromUserId: currentUser.id,
+            toUserId: targetUserId,
             status: 'PENDING'
+          },
+          include: {
+            fromUser: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                profilePicture: true
+              }
+            },
+            toUser: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                profilePicture: true
+              }
+            }
           }
         });
 
-        // Create notification for receiver
+        // Create notification for target user
         await prisma.notification.create({
           data: {
-            userId: receiverId,
+            userId: targetUserId,
             type: 'CONNECTION_REQUEST',
-            message: `${session.user?.name} wants to connect with you`,
-            data: JSON.stringify({ connectionId: connection.id }),
-            read: false
+            message: `${session.user.name || 'Someone'} wants to connect with you!`,
+            data: JSON.stringify({
+              connectionId: connection.id,
+              fromUser: {
+                id: connection.fromUser.id,
+                name: connection.fromUser.name,
+                email: connection.fromUser.email,
+                profilePicture: connection.fromUser.profilePicture
+              }
+            })
           }
         });
 
-        return res.status(201).json(connection);
+        return res.status(200).json(connection);
       } catch (error) {
         console.error('Error creating connection:', error);
         return res.status(500).json({ error: 'Failed to create connection' });
       }
 
-    case 'PUT':
-      try {
-        const { connectionId, status } = req.body;
-
-        const connection = await prisma.connection.findUnique({
-          where: { id: connectionId },
-          include: {
-            requester: {
-              select: { name: true }
-            }
-          }
-        });
-
-        if (!connection) {
-          return res.status(404).json({ error: 'Connection not found' });
-        }
-
-        if (connection.receiverId !== userEmail) {
-          return res.status(403).json({ error: 'Not authorized to update this connection' });
-        }
-
-        const updatedConnection = await prisma.connection.update({
-          where: { id: connectionId },
-          data: { status }
-        });
-
-        // Create notification for requester
-        await prisma.notification.create({
-          data: {
-            userId: connection.requesterId,
-            type: 'CONNECTION_RESPONSE',
-            message: `${session.user?.name} ${status === 'ACCEPTED' ? 'accepted' : 'declined'} your connection request`,
-            data: JSON.stringify({ connectionId }),
-            read: false
-          }
-        });
-
-        return res.status(200).json(updatedConnection);
-      } catch (error) {
-        console.error('Error updating connection:', error);
-        return res.status(500).json({ error: 'Failed to update connection' });
-      }
-
     default:
-      res.setHeader('Allow', ['GET', 'POST', 'PUT']);
-      return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
+      res.setHeader('Allow', ['GET', 'POST']);
+      return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }

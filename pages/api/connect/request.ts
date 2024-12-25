@@ -50,8 +50,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       data: {
         userId: targetUserId,
         type: 'CONNECTION_REQUEST',
-        title: 'New Connection Request',
         message: `${session.user.name || 'Someone'} wants to connect with you!`,
+        data: JSON.stringify({
+          connectionId: connection.id,
+          fromUser: {
+            id: connection.from.id,
+            name: connection.from.name,
+            email: connection.from.email,
+            profilePicture: connection.from.profilePicture
+          }
+        })
       }
     });
 

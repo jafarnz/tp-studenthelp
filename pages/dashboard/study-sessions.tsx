@@ -11,6 +11,8 @@ import {
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useRouter } from 'next/router';
+import { pusherClient } from '@/lib/pusher';
+import ChatWindow from '@/components/ChatWindow';
 
 interface Message {
   id: string;
@@ -24,124 +26,167 @@ interface Message {
   };
 }
 
-interface Connection {
+interface User {
   id: string;
-  user: {
-    id: string;
-    name: string;
-    profilePicture: string | null;
-    school: string;
-    diploma: string;
-    lastMessage?: Message;
-  };
+  name: string | null;
+  email: string;
+  profilePicture: string | null;
+  school: string | null;
+  diploma: string | null;
 }
 
 export default function StudySessions() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { user: selectedUserId } = router.query;
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [selectedUser, setSelectedUser] = useState<Connection['user'] | null>(null);
+  const { userId: selectedUserId } = router.query;
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Select user from connections when query parameter is present
-  useEffect(() => {
-    if (selectedUserId && connections.length > 0) {
-      const connection = connections.find(c => c.user.id === selectedUserId);
-      if (connection) {
-        setSelectedUser(connection.user);
-      }
-    }
-  }, [selectedUserId, connections]);
-
-  // Fetch connections
-  useEffect(() => {
-    const fetchConnections = async () => {
-      try {
-        const response = await fetch('/api/connections?status=CONNECTED', {
-          credentials: 'include'
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch connections');
-        }
-        const data = await response.json();
-        
-        // Transform the data to get the other user's info
-        const processedConnections = data.map((conn: any) => ({
-          id: conn.id,
-          user: conn.fromUserId === session?.user?.id ? conn.toUser : conn.fromUser
-        }));
-        
-        setConnections(processedConnections);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error fetching connections:', error);
-        toast.error('Failed to load connections');
-      }
-    };
-
-    if (session?.user?.email) {
-      fetchConnections();
-    }
-  }, [session]);
-
-  // Fetch messages when a user is selected
-  useEffect(() => {
-    const fetchMessages = async () => {
-      if (!selectedUser) return;
-
-      try {
-        const response = await fetch(`/api/messages?userId=${selectedUser.id}`, {
-          credentials: 'include'
-        });
-        const data = await response.json();
-        setMessages(data);
-        scrollToBottom();
-      } catch (error) {
-        console.error('Error fetching messages:', error);
-        toast.error('Failed to load messages');
-      }
-    };
-
-    fetchMessages();
-  }, [selectedUser]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Get current user with profile info
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const response = await fetch('/api/users/me', {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch current user');
+        }
+        const data = await response.json();
+        setCurrentUserId(data.id);
+        setCurrentUser(data); // Store full user data
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+        toast.error('Failed to load user data');
+      }
+    };
+
+    getCurrentUser();
+  }, []);
+
+  // Fetch all users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/users', {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch users');
+        }
+        const data = await response.json();
+        setUsers(data);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        toast.error('Failed to load users');
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  // Handle user selection and message fetching
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (selectedUserId && typeof selectedUserId === 'string') {
+        const user = users.find(u => u.id === selectedUserId);
+        if (user) {
+          setSelectedUser(user);
+          
+          try {
+            console.log('Fetching messages for user:', selectedUserId);
+            const response = await fetch(`/api/messages?userId=${selectedUserId}`);
+            if (!response.ok) {
+              throw new Error('Failed to fetch messages');
+            }
+            const data = await response.json();
+            console.log('Fetched messages:', data);
+            setMessages(data);
+            scrollToBottom();
+
+            // Set up Pusher subscription
+            if (currentUserId) {
+              const channelName = [currentUserId, selectedUserId].sort().join('-');
+              console.log('Setting up Pusher subscription for channel:', channelName);
+              
+              // Unsubscribe from previous channel if exists
+              pusherClient.unsubscribe(channelName);
+              
+              const channel = pusherClient.subscribe(channelName);
+
+              channel.bind('new-message', (message: Message) => {
+                console.log('Received message through Pusher:', message);
+                setMessages(prevMessages => {
+                  // Check if message already exists
+                  const messageExists = prevMessages.some(m => m.id === message.id);
+                  if (messageExists) {
+                    console.log('Message already exists, not adding:', message.id);
+                    return prevMessages;
+                  }
+                  console.log('Adding new message to state');
+                  return [...prevMessages, message];
+                });
+                scrollToBottom();
+              });
+
+              return () => {
+                console.log('Cleaning up Pusher subscription for channel:', channelName);
+                pusherClient.unsubscribe(channelName);
+              };
+            }
+          } catch (error) {
+            console.error('Error loading messages:', error);
+            toast.error('Failed to load messages');
+          }
+        }
+      }
+    };
+
+    loadMessages();
+  }, [selectedUserId, users, currentUserId]);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUser || !newMessage.trim()) return;
+    if (!newMessage.trim() || !selectedUser) return;
+
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Clear input immediately for better UX
 
     try {
+      console.log('Sending message:', messageContent);
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          content: newMessage,
-          receiverId: selectedUser.id
+          content: messageContent,
+          receiverId: selectedUser.id,
         }),
-        credentials: 'include'
       });
 
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
 
-      const message = await response.json();
-      setMessages(prev => [...prev, message]);
-      setNewMessage('');
-      scrollToBottom();
+      const sentMessage = await response.json();
+      console.log('Message sent successfully:', sentMessage);
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
+      setNewMessage(messageContent); // Restore message if send failed
     }
   };
 
@@ -154,7 +199,7 @@ export default function StudySessions() {
     formData.append('receiverId', selectedUser.id);
 
     try {
-      const response = await fetch('/api/messages/image', {
+      const response = await fetch('/api/messages', {
         method: 'POST',
         body: formData,
         credentials: 'include'
@@ -165,27 +210,26 @@ export default function StudySessions() {
       }
 
       const message = await response.json();
-      setMessages(prev => [...prev, message]);
-      scrollToBottom();
+      // No need to update messages here as Pusher will handle it
     } catch (error) {
       console.error('Error uploading image:', error);
       toast.error('Failed to upload image');
     }
   };
 
-  // Empty state when no connections
-  if (!isLoading && connections.length === 0) {
+  // Empty state when no users
+  if (!isLoading && users.length === 0) {
     return (
       <DashboardLayout>
         <div className="flex h-[calc(100vh-5rem)] bg-white rounded-lg shadow-sm">
           <div className="w-80 border-r border-gray-200">
             <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Study Partners</h2>
+              <h2 className="text-lg font-semibold text-gray-900">All Users</h2>
             </div>
             <div className="p-4">
-              <p className="text-sm text-gray-500">No connected study partners yet.</p>
+              <p className="text-sm text-gray-500">No users found.</p>
               <p className="mt-2 text-sm text-gray-500">
-                Visit the dashboard to find and connect with other students!
+                Please try again later!
               </p>
             </div>
           </div>
@@ -198,7 +242,7 @@ export default function StudySessions() {
                 No active chats
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                Connect with other students to start chatting!
+                Select a user to start chatting!
               </p>
             </div>
           </div>
@@ -210,24 +254,24 @@ export default function StudySessions() {
   return (
     <DashboardLayout>
       <div className="flex h-[calc(100vh-5rem)] bg-white rounded-lg shadow-sm">
-        {/* Connections Sidebar */}
+        {/* Users Sidebar */}
         <div className="w-80 border-r border-gray-200 flex flex-col">
           <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Study Partners</h2>
+            <h2 className="text-lg font-semibold text-gray-900">All Users</h2>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {connections.map(connection => (
+            {users.map(user => (
               <button
-                key={connection.id}
-                onClick={() => setSelectedUser(connection.user)}
+                key={user.id}
+                onClick={() => setSelectedUser(user)}
                 className={`w-full p-4 flex items-center space-x-3 hover:bg-gray-50 transition-colors ${
-                  selectedUser?.id === connection.user.id ? 'bg-purple-50' : ''
+                  selectedUser?.id === user.id ? 'bg-purple-50' : ''
                 }`}
               >
                 <div className="flex-shrink-0">
-                  {connection.user.profilePicture ? (
+                  {user.profilePicture ? (
                     <Image
-                      src={connection.user.profilePicture}
+                      src={user.profilePicture}
                       alt=""
                       width={40}
                       height={40}
@@ -241,10 +285,10 @@ export default function StudySessions() {
                 </div>
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-sm font-medium text-gray-900 truncate">
-                    {connection.user.name}
+                    {user.name || user.email}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
-                    {connection.user.school}
+                    {user.school || 'No school listed'}
                   </p>
                 </div>
               </button>
@@ -273,10 +317,10 @@ export default function StudySessions() {
                 )}
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
-                    {selectedUser.name}
+                    {selectedUser.name || selectedUser.email}
                   </h2>
                   <p className="text-sm text-gray-500">
-                    {selectedUser.school} • {selectedUser.diploma}
+                    {selectedUser.school ? `${selectedUser.school}${selectedUser.diploma ? ` • ${selectedUser.diploma}` : ''}` : 'No school listed'}
                   </p>
                 </div>
               </div>
@@ -285,88 +329,20 @@ export default function StudySessions() {
               </button>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((message, index) => {
-                const isCurrentUser = message.senderId === session?.user?.id;
-                const showAvatar = index === 0 || 
-                  messages[index - 1].senderId !== message.senderId;
+            {/* Chat Window */}
+            <ChatWindow
+              key={selectedUser.id}
+              selectedUserId={selectedUser.id}
+            />
 
-                return (
-                  <div
-                    key={message.id}
-                    className={`flex items-end space-x-2 ${
-                      isCurrentUser ? 'flex-row-reverse space-x-reverse' : ''
-                    }`}
-                  >
-                    {showAvatar && (
-                      <div className="flex-shrink-0">
-                        {message.sender.profilePicture ? (
-                          <Image
-                            src={message.sender.profilePicture}
-                            alt=""
-                            width={32}
-                            height={32}
-                            className="rounded-full"
-                          />
-                        ) : (
-                          <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-                            <UserIcon className="h-5 w-5 text-purple-600" />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <div
-                      className={`max-w-md px-4 py-2 rounded-2xl ${
-                        isCurrentUser
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
-                    >
-                      <p className="text-sm">{message.content}</p>
-                      <p className="text-xs mt-1 opacity-75">
-                        {format(new Date(message.createdAt), 'h:mm a')}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Message Input */}
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200">
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2 text-gray-400 hover:text-gray-600"
-                >
-                  <PhotoIcon className="h-6 w-6" />
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleImageUpload}
-                  accept="image/*"
-                  className="hidden"
-                />
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-                <button
-                  type="submit"
-                  disabled={!newMessage.trim()}
-                  className="p-2 text-white bg-purple-600 rounded-full hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <PaperAirplaneIcon className="h-5 w-5" />
-                </button>
-              </div>
-            </form>
+            {/* Image Upload Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              className="hidden"
+            />
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
@@ -375,7 +351,7 @@ export default function StudySessions() {
                 <UserIcon className="h-full w-full" />
               </div>
               <h3 className="mt-2 text-sm font-medium text-gray-900">
-                Select a study partner
+                Select a user
               </h3>
               <p className="mt-1 text-sm text-gray-500">
                 Choose someone from the list to start chatting

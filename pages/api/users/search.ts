@@ -49,28 +49,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Build where clause
     const where: any = {
       NOT: {
-        id: currentUserId // Exclude current user by ID
-      },
-      isTemporary: false,
-      name: {
-        not: null
-      },
-      email: {
-        not: null
+        id: currentUserId, // Exclude current user
       }
     };
 
-    // Only add search conditions if there's a search query
+    // Only add search conditions if there's a search string
     if (searchString.trim()) {
       where.OR = [
-        { name: { contains: searchString } },
-        { username: { contains: searchString } },
-        { school: { contains: searchString } },
-        { diploma: { contains: searchString } }
+        { name: { contains: searchString.toLowerCase() } },
+        { email: { contains: searchString.toLowerCase() } },
+        { school: { contains: searchString.toLowerCase() } },
+        { diploma: { contains: searchString.toLowerCase() } }
       ];
     }
 
-    // Fetch users with their connection status
+    // Fetch users with their connection status to current user
     const users = await prisma.user.findMany({
       where,
       select: {
@@ -85,32 +78,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         skillsets: true,
         connections: {
           where: {
-            fromUserId: currentUserId
+            fromUserId: currentUserId,
           },
           select: {
-            status: true
-          }
+            status: true,
+          },
         },
         connectedTo: {
           where: {
-            toUserId: currentUserId
+            toUserId: currentUserId,
           },
           select: {
-            status: true
-          }
-        }
+            status: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc'
-      }
+      },
+      take: 50,
     });
 
-    // Format the response
+    // Format response
     const formattedUsers = users.map(user => {
       const outgoingConnection = user.connections[0];
       const incomingConnection = user.connectedTo[0];
+      
       let connectionStatus = 'NONE';
-
       if (outgoingConnection) {
         connectionStatus = outgoingConnection.status;
       } else if (incomingConnection) {
@@ -119,10 +113,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       return {
         ...user,
+        skillsets: user.skillsets ? JSON.parse(user.skillsets) : [],
+        connectionStatus,
         connections: undefined,
         connectedTo: undefined,
-        connectionStatus,
-        skillsets: user.skillsets ? JSON.parse(user.skillsets) : []
       };
     });
 

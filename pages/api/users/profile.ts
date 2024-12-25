@@ -31,13 +31,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             username: true,
             connections: {
               include: {
-                connectedTo: {
+                toUser: {
                   select: {
                     id: true,
                     name: true,
-                    image: true
+                    image: true,
+                    profilePicture: true
                   }
                 }
+              },
+              where: {
+                status: 'CONNECTED'
+              }
+            },
+            connectedTo: {
+              include: {
+                fromUser: {
+                  select: {
+                    id: true,
+                    name: true,
+                    image: true,
+                    profilePicture: true
+                  }
+                }
+              },
+              where: {
+                status: 'CONNECTED'
               }
             }
           }
@@ -48,10 +67,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Format response data
+        const connections = [
+          ...userData.connections.map(conn => conn.toUser),
+          ...userData.connectedTo.map(conn => conn.fromUser)
+        ];
+
         const responseData = {
           ...userData,
+          connections,
           skillsets: userData.skillsets ? JSON.parse(userData.skillsets) : []
         };
+
+        delete responseData.connectedTo; // Remove redundant data
 
         return res.status(200).json(responseData);
 

@@ -14,19 +14,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Debug session data
     console.log('API Session data:', {
       session: session,
-      userId: session?.user?.id
+      email: session?.user?.email
     });
 
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
     // Debug database query
-    console.log('Looking up user with ID:', session.user.id);
+    console.log('Looking up user with email:', session.user.email);
 
-    // Get user data directly from database
+    // Get user data from database using email
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { email: session.user.email },
       select: {
         id: true,
         email: true,

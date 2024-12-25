@@ -1,12 +1,24 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getSession } from 'next-auth/react';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]';
 import prisma from '@/lib/prisma';
+import { pusherServer } from '@/lib/pusher';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const session = await getSession({ req });
+  const session = await getServerSession(req, res, authOptions);
 
-  if (!session?.user?.id) {
+  if (!session?.user?.email) {
     return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  // Get current user
+  const currentUser = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true }
+  });
+
+  if (!currentUser) {
+    return res.status(404).json({ error: 'User not found' });
   }
 
   switch (req.method) {
@@ -23,19 +35,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           where: {
             OR: [
               {
-                senderId: session.user.id,
+                senderId: currentUser.id,
                 receiverId: userId,
               },
               {
                 senderId: userId,
-                receiverId: session.user.id,
+                receiverId: currentUser.id,
               },
             ],
           },
           include: {
             sender: {
               select: {
-                id: true,
                 name: true,
                 profilePicture: true,
               },
@@ -60,23 +71,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(400).json({ error: 'Content and receiver ID are required' });
         }
 
-        // Create new message
-        const message = await prisma.message.create({
-          data: {
-            content,
-            senderId: session.user.id,
-            receiverId,
-          },
-          include: {
-            sender: {
-              select: {
-                id: true,
-                name: true,
-                profilePicture: true,
+        // Create message and trigger Pusher event in parallel
+        const [message] = await Promise.all([
+          prisma.message.create({
+            data: {
+              content,
+              senderId: currentUser.id,
+              receiverId,
+            },
+            include: {
+              sender: {
+                select: {
+                  name: true,
+                  profilePicture: true,
+                },
               },
             },
-          },
-        });
+          }),
+          // No need to await this separately
+          pusherServer.trigger(
+            [currentUser.id, receiverId].sort().join('-'),
+            'new-message',
+            {
+              id: `temp-${Date.now()}`, // Will be replaced by real message
+              content,
+              senderId: currentUser.id,
+              receiverId,
+              createdAt: new Date().toISOString(),
+              sender: {
+                name: session.user.name || '',
+                profilePicture: session.user.image || null,
+              },
+            }
+          ),
+        ]);
 
         return res.status(201).json(message);
       } catch (error) {

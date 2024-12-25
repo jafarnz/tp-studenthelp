@@ -13,7 +13,8 @@ import {
   ClockIcon,
   CheckIcon,
   BookOpenIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '@/components/DashboardLayout';
 import toast from 'react-hot-toast';
@@ -51,37 +52,22 @@ export default function Dashboard() {
           queryParams.append('search', searchQuery);
         }
         
-        const response = await fetch(`/api/users/search${queryParams.toString() ? `?${queryParams.toString()}` : ''}`, {
-          credentials: 'include'
-        });
+        const response = await fetch(`/api/users/search?${queryParams.toString()}`);
+        if (!response.ok) throw new Error('Failed to fetch users');
         
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to fetch users');
-        }
-
         const data = await response.json();
         setUsers(data);
       } catch (error) {
         console.error('Error fetching users:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to fetch users');
+        toast.error('Failed to fetch users');
       } finally {
         setIsSearching(false);
         setIsLoading(false);
       }
     };
 
-    // Only debounce if there's a search query
-    if (searchQuery.trim()) {
-      const timeoutId = setTimeout(() => {
-        fetchUsers();
-      }, 300);
-      return () => clearTimeout(timeoutId);
-    } else {
-      // Fetch immediately if no search query
-      fetchUsers();
-    }
-  }, [searchQuery, session]);
+    fetchUsers();
+  }, [session, searchQuery]);
 
   // Fetch notifications
   useEffect(() => {
@@ -207,6 +193,210 @@ export default function Dashboard() {
     }
   };
 
+  const handleDismissNotification = async (notificationId: string) => {
+    try {
+      const response = await fetch(`/api/notifications/${notificationId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to dismiss notification');
+      }
+
+      // Update notifications locally
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+
+      toast.success('Notification dismissed!');
+    } catch (error) {
+      console.error('Error dismissing notification:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to dismiss notification');
+    }
+  };
+
+  const renderUsers = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+      );
+    }
+
+    if (users.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+          <UserIcon className="h-16 w-16 mb-4" />
+          <p className="text-lg font-medium">No users found</p>
+          <p className="text-sm">Try adjusting your search query</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
+        {users.map((user) => (
+          <div 
+            key={user.id} 
+            className="bg-[#2F3138] rounded-lg p-6 flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-200 min-w-[320px]"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-4">
+                <div className="flex-shrink-0">
+                  {user.profilePicture ? (
+                    <Image
+                      src={user.profilePicture}
+                      alt={user.name}
+                      width={56}
+                      height={56}
+                      className="rounded-full object-cover border-2 border-purple-500"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-purple-600 flex items-center justify-center">
+                      <UserIcon className="w-8 h-8 text-white" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xl font-semibold text-white truncate max-w-[200px]">{user.name}</h3>
+                  <p className="text-purple-400 text-sm truncate max-w-[200px]">{user.email}</p>
+                </div>
+              </div>
+              <div className="flex-shrink-0 ml-4">
+                {user.connectionStatus === 'NONE' && (
+                  <button
+                    onClick={() => handleConnect(user.id)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200 whitespace-nowrap"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Connect
+                  </button>
+                )}
+                {user.connectionStatus === 'PENDING' && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-700 text-gray-300 whitespace-nowrap">
+                    <ClockIcon className="h-4 w-4 mr-1" />
+                    Pending
+                  </span>
+                )}
+                {user.connectionStatus === 'CONNECTED' && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-900 text-green-300 whitespace-nowrap">
+                    <CheckIcon className="h-4 w-4 mr-1" />
+                    Connected
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center text-gray-300">
+                <AcademicCapIcon className="h-5 w-5 mr-2 flex-shrink-0 text-purple-400" />
+                <span className="truncate">{user.school}</span>
+              </div>
+              <div className="flex items-center text-gray-300">
+                <BookOpenIcon className="h-5 w-5 mr-2 flex-shrink-0 text-purple-400" />
+                <span className="truncate">{user.diploma} • Year {user.studentYear}</span>
+              </div>
+            </div>
+
+            {user.bio && (
+              <p className="text-gray-400 text-sm mb-4 line-clamp-2">{user.bio}</p>
+            )}
+
+            {user.skillsets?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-auto pt-4">
+                {user.skillsets.slice(0, 4).map((skill, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-900/50 text-purple-300 whitespace-nowrap"
+                  >
+                    {skill}
+                  </span>
+                ))}
+                {user.skillsets.length > 4 && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-900/50 text-purple-300">
+                    +{user.skillsets.length - 4}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderNotifications = () => {
+    return (
+      <div className="space-y-4">
+        {notifications.map((notification: any) => {
+          let notificationData;
+          try {
+            notificationData = notification.data ? JSON.parse(notification.data) : {};
+          } catch (error) {
+            console.error('Error parsing notification data:', error);
+            notificationData = {};
+          }
+
+          if (notification.type === 'CONNECTION_REQUEST') {
+            const fromUser = notificationData.fromUser || {};
+            return (
+              <div
+                key={notification.id}
+                className="bg-[#2F3138] rounded-lg p-4 flex items-start space-x-4"
+              >
+                <div className="flex-shrink-0">
+                  {fromUser.profilePicture ? (
+                    <Image
+                      src={fromUser.profilePicture}
+                      alt={fromUser.name || 'User'}
+                      width={40}
+                      height={40}
+                      className="rounded-full"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center">
+                      <UserIcon className="w-6 h-6 text-white" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-white">
+                    <span className="font-semibold">{fromUser.name}</span> wants to connect with you
+                  </p>
+                  <div className="mt-2 flex space-x-2">
+                    <button
+                      onClick={() => handleAcceptConnection(notificationData.connectionId)}
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200"
+                    >
+                      <CheckIcon className="h-4 w-4 mr-1" />
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => handleRejectConnection(notificationData.connectionId)}
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
+                    >
+                      <XMarkIcon className="h-4 w-4 mr-1" />
+                      Decline
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDismissNotification(notification.id)}
+                  className="flex-shrink-0 text-gray-400 hover:text-gray-300"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+            );
+          }
+
+          return null;
+        })}
+      </div>
+    );
+  };
+
   if (!session) {
     return null;
   }
@@ -301,93 +491,7 @@ export default function Dashboard() {
               </Link>
             </div>
 
-            {isSearching ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
-              </div>
-            ) : users.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <UserIcon className="mx-auto h-12 w-12 text-gray-500 mb-2" />
-                <p>No users found</p>
-                <p className="text-sm">Try adjusting your search query</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {users.map((user) => (
-                  <div 
-                    key={user.id} 
-                    className="bg-[#2F3138] rounded-lg p-4 flex flex-col"
-                  >
-                    <div className="flex items-start space-x-4">
-                      <div className="flex-shrink-0">
-                        {user.profilePicture ? (
-                          <Image
-                            src={user.profilePicture}
-                            alt={user.name}
-                            width={48}
-                            height={48}
-                            className="rounded-full"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-gray-600 flex items-center justify-center">
-                            <UserIcon className="w-6 h-6 text-gray-300" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-white truncate">{user.name}</h3>
-                        <p className="text-sm text-gray-400">{user.school}</p>
-                        <p className="text-sm text-gray-400">{user.diploma} • Year {user.studentYear}</p>
-                      </div>
-                      <div className="flex-shrink-0">
-                        {user.connectionStatus === 'NONE' && (
-                          <button
-                            onClick={() => handleConnect(user.id)}
-                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                          >
-                            <PlusIcon className="h-4 w-4 mr-1" />
-                            Connect
-                          </button>
-                        )}
-                        {user.connectionStatus === 'PENDING' && (
-                          <span className="inline-flex items-center px-3 py-1 text-sm text-gray-400">
-                            <ClockIcon className="h-4 w-4 mr-1" />
-                            Pending
-                          </span>
-                        )}
-                        {user.connectionStatus === 'CONNECTED' && (
-                          <span className="inline-flex items-center px-3 py-1 text-sm text-green-400">
-                            <CheckIcon className="h-4 w-4 mr-1" />
-                            Connected
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {user.bio && (
-                      <p className="mt-2 text-sm text-gray-400 line-clamp-2">{user.bio}</p>
-                    )}
-                    {user.skillsets?.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {user.skillsets.slice(0, 3).map((skill, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-300"
-                          >
-                            <BookOpenIcon className="h-3 w-3 mr-1" />
-                            {skill}
-                          </span>
-                        ))}
-                        {user.skillsets.length > 3 && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-300">
-                            +{user.skillsets.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            {renderUsers()}
           </div>
 
           {/* Notifications Section */}
@@ -407,87 +511,8 @@ export default function Dashboard() {
                   <p>No new notifications</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {notifications.map((notification: any) => {
-                    const data = JSON.parse(notification.data || '{}');
-                    
-                    if (notification.type === 'CONNECTION_REQUEST') {
-                      return (
-                        <div key={notification.id} className="flex items-start space-x-4 p-3 bg-[#1A1D23] rounded-lg">
-                          <div className="flex-1">
-                            <p className="text-sm text-white">{notification.message}</p>
-                            <div className="mt-2 flex space-x-2">
-                              <button
-                                onClick={() => handleAcceptConnection(data.connectionId)}
-                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                              >
-                                Accept
-                              </button>
-                              <button
-                                onClick={() => handleRejectConnection(data.connectionId)}
-                                className="inline-flex items-center px-3 py-1 border border-gray-600 text-xs font-medium rounded-md text-gray-300 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                              >
-                                Reject
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    
-                    return null;
-                  })}
-                </div>
+                renderNotifications()
               )}
-            </div>
-          </div>
-
-          {/* Upcoming Events Section */}
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-2">
-                <CalendarIcon className="h-6 w-6 text-gray-400" />
-                <h2 className="text-xl font-semibold text-white">Upcoming Events</h2>
-              </div>
-            </div>
-            <div className="space-y-4">
-              {[
-                {
-                  title: "Web Development Workshop",
-                  date: "Wednesday, Dec 25 at 14:00",
-                  participants: "8/12 participants",
-                  host: "John Chen",
-                  type: "workshop"
-                },
-                {
-                  title: "Data Science Study Group",
-                  date: "Thursday, Dec 28 at 15:30",
-                  participants: "5/8 participants",
-                  host: "Sarah Lee",
-                  type: "study"
-                }
-              ].map((event, index) => (
-                <div key={index} className="bg-[#2F3138] rounded-lg p-4 shadow-sm">
-                  <h3 className="font-semibold text-white">{event.title}</h3>
-                  <div className="mt-2 space-y-1 text-sm text-gray-300">
-                    <p className="flex items-center gap-2">
-                      <CalendarIcon className="h-4 w-4" />
-                      {event.date}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <UserGroupIcon className="h-4 w-4" />
-                      {event.participants}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <UserIcon className="h-4 w-4" />
-                      Hosted by {event.host}
-                    </p>
-                  </div>
-                  <button className="w-full mt-4 px-4 py-2 bg-[#3B3F54] text-white rounded-lg hover:bg-[#444869] transition-colors">
-                    Join Session
-                  </button>
-                </div>
-              ))}
             </div>
           </div>
         </div>

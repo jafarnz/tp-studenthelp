@@ -1,0 +1,24 @@
+{
+  "buildCommand": "prisma generate && next build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["sin1"],
+  "env": {
+    "PUSHER_APP_ID": "@pusher_app_id",
+    "PUSHER_KEY": "@pusher_key",
+    "PUSHER_SECRET": "@pusher_secret",
+    "PUSHER_CLUSTER": "@pusher_cluster",
+    "NEXT_PUBLIC_PUSHER_KEY": "@pusher_key",
+    "NEXT_PUBLIC_PUSHER_CLUSTER": "@pusher_cluster"
+  },
+  "build": {
+    "env": {
+      "PUSHER_APP_ID": "@pusher_app_id",
+      "PUSHER_KEY": "@pusher_key",
+      "PUSHER_SECRET": "@pusher_secret",
+      "PUSHER_CLUSTER": "@pusher_cluster",
+      "NEXT_PUBLIC_PUSHER_KEY": "@pusher_key",
+      "NEXT_PUBLIC_PUSHER_CLUSTER": "@pusher_cluster"
+    }
+  }
+}
